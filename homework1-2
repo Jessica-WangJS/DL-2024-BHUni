@@ -1,0 +1,103 @@
+from google.colab import drive
+drive.mount('./mount')
+
+import os
+import math
+import jieba
+from collections import Counter
+
+def calculate_entropy(tokens):
+    total_tokens = len(tokens)
+    if total_tokens == 0:
+        return 0.0  # Return zero entropy if tokens list is empty
+    token_counts = Counter(tokens)
+    entropy = 0.0
+    for count in token_counts.values():
+        probability = count / total_tokens
+        entropy -= probability * math.log2(probability)
+    return entropy
+
+def isfloat(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+def preprocess_files(folder_path):
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.txt') and '-replaced' not in filename:
+            input_file_path = os.path.join(folder_path, filename)
+            output_file_path = input_file_path.replace('.txt', '-replaced.txt')
+
+            with open(input_file_path, 'rb') as input_file:
+                byte_data = input_file.read()
+
+            decoded_text_replace = byte_data.decode('gbk', errors='ignore')
+
+            with open(output_file_path, 'w', encoding='utf-8') as output_file:
+                output_file.write(decoded_text_replace)
+
+            print(f"处理完成，已将结果写入到 {output_file_path}")
+
+def readcorpus(folder_path):
+    word_entropies = []
+    char_entropies = []
+
+    for filename in os.listdir(folder_path):
+        if filename.endswith('-replaced.txt'):
+            file_path = os.path.join(folder_path, filename)
+
+            with open(file_path, 'r', encoding='utf-8') as file:
+                corpus = file.read()
+
+            # by word
+            o_word_tokens = jieba.lcut(corpus)
+            # by char
+            o_char_tokens = list(corpus)
+
+            # remove irrelevant content
+            word_tokens = []
+            char_tokens = []
+
+            for word_token in o_word_tokens:
+                if len(word_token) == 1 or word_token in ['\n', '。', '？', '！', '，', '；', '：'] or word_token.isdigit() or isfloat(word_token):
+                    continue
+                else:
+                    word_tokens.append(word_token)
+
+            for char_token in o_char_tokens:
+                if char_token in ['\n', '。', '？', '！', '，', '；', '：'] or char_token.isdigit() or isfloat(char_token):
+                    continue
+                else:
+                    char_tokens.append(char_token)
+
+            word_entropy = calculate_entropy(word_tokens)
+            char_entropy = calculate_entropy(char_tokens)
+
+            word_entropies.append(word_entropy)
+            char_entropies.append(char_entropy)
+
+    return word_entropies, char_entropies
+
+# Folder path containing text files
+folder_path = './mount/My Drive/Colab Notebooks/BH/1-2/DL/1/chinese_corpus/'
+
+# Preprocess files
+preprocess_files(folder_path)
+
+# Calculate entropies
+word_entropies, char_entropies = readcorpus(folder_path)
+
+# Output entropies for each file
+for i, (word_entropy, char_entropy) in enumerate(zip(word_entropies, char_entropies)):
+    print(f"File {i+1}:")
+    print("Word entropy is:", word_entropy)
+    print("Character entropy is:", char_entropy)
+
+# Calculate average entropies
+avg_word_entropy = sum(word_entropies) / len(word_entropies)
+avg_char_entropy = sum(char_entropies) / len(char_entropies)
+
+print("\nAverage word entropy:", avg_word_entropy)
+print("Average character entropy:", avg_char_entropy)
